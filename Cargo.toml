@@ -4,3 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+stm32f3-pg_macros = { path = "./stm32f3-pg_macros" }
+
+[workspace]
+members = [
+  "stm32f3-pg_macros",
+]
+resolver = "2"
