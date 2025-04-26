@@ -3,9 +3,10 @@ use core::{
     panic::PanicInfo,
     ptr::{read_volatile, write_volatile},
 };
-use stm32f3_pg_macros::vector_table;
 
 use crate::main;
+
+mod vector_table;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -14,7 +15,7 @@ fn panic(_info: &PanicInfo) -> ! {
 
 unsafe extern "C" {
     /// end of stack
-    static _estack: u32;
+    static _estack: usize;
     /// Start of .data section in FLASH (LMA)
     static _sidata: u8;
     /// Start of .data section in RAM (VMA)
@@ -64,30 +65,3 @@ pub extern "C" fn reset_handler() {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn default_hanlder() {}
-
-union VectorFn {
-    func: extern "C" fn(),
-    reserved: u8,
-}
-
-impl VectorFn {
-    const fn new(func: extern "C" fn()) -> Self {
-        Self { func }
-    }
-
-    const fn reserved() -> Self {
-        Self { reserved: 0 }
-    }
-}
-
-type VectorTable<const N: usize> = (&'static u32, [VectorFn; N]);
-
-#[used]
-#[unsafe(no_mangle)]
-#[unsafe(link_section = ".vector_table")]
-pub static VECTOR_TABLE: VectorTable<1> = (unsafe { &_estack }, [VectorFn::new(reset_handler)]);
-
-#[vector_table]
-struct VectorTab {
-    reset: reset_handler,
-}
