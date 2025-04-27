@@ -1,3 +1,5 @@
+use core::usize;
+
 use super::{_estack, default_hanlder, reset_handler};
 
 struct VectorTableBuilder<const N: usize> {
@@ -23,16 +25,77 @@ enum VectorValue {
     Fn(extern "C" fn()),
 }
 
-impl<const N: usize> VectorTableBuilder<N> {
-    const fn build(self) -> VectorTable<N> {
-        let mut result = (self.stack, [None; N]);
+struct VectorTableBuilderState<const N: usize> {
+    result: VectorTable<N>,
+    builder_index: usize,
+    result_index: usize,
+    last_addr: usize,
+}
 
-        let (mut index, mut last_addr) = (0, self.addr);
-        while index < N {
-            index += 1;
+impl<const N: usize> VectorTableBuilderState<N> {
+    const fn new<const M: usize>(builder: &VectorTableBuilder<M>) -> Self {
+        Self {
+            result: (builder.stack, [None; N]),
+            builder_index: 0,
+            result_index: 0,
+            last_addr: builder.addr,
+        }
+    }
+
+    const fn add_to_result(&mut self, addr: usize, value: &VectorValue) {
+        if (addr - self.last_addr) != size_of::<usize>() {
+            panic!("vector table addresses are not aligned by usize");
         }
 
-        result
+        self.last_addr = addr;
+
+        self.result.1[self.result_index] = match value {
+            VectorValue::Reserved => None,
+            VectorValue::Fn(v_fn) => Some(*v_fn),
+        };
+        self.result_index += 1;
+    }
+}
+
+impl<const N: usize> VectorTableBuilder<N> {
+    const fn build<const M: usize>(self) -> VectorTable<M> {
+        if M < N {
+            panic!("VectorTable can't have less items than VectortableBuiler");
+        }
+
+        let mut state = VectorTableBuilderState::<M>::new(&self);
+
+        while state.builder_index < N {
+            if state.result_index >= M {
+                todo!()
+            }
+            let item = &self.vectors[state.builder_index];
+
+            match item.address {
+                VectorAddr::Addr(addr) => state.add_to_result(addr, &item.value),
+                VectorAddr::Range(min, max) => {
+                    let mut addr = min;
+
+                    loop {
+                        if addr > max {
+                            panic!("max or min are not aligned");
+                        }
+
+                        state.add_to_result(addr, &item.value);
+
+                        if addr == max {
+                            break;
+                        }
+
+                        addr += size_of::<usize>();
+                    }
+                }
+            }
+
+            state.builder_index += 1;
+        }
+
+        state.result
     }
 }
 
@@ -59,3 +122,12 @@ pub static VECTOR_TABLE: VectorTable<2> = VectorTableBuilder {
 }
 .build();
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vector_table_builder() {
+        panic!("hi");
+    }
+}

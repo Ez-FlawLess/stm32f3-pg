@@ -1,6 +1,5 @@
 use core::{
     arch::asm,
-    panic::PanicInfo,
     ptr::{read_volatile, write_volatile},
 };
 
@@ -8,8 +7,8 @@ use crate::main;
 
 mod vector_table;
 
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+#[cfg_attr(not(test), panic_handler)]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 

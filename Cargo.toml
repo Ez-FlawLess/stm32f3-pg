@@ -6,6 +6,11 @@ edition = "2024"
 [dependencies]
 stm32f3-pg_macros = { path = "./stm32f3-pg_macros" }
 
+[[bin]]
+name = "stm32f3-pg"
+test = false
+bench = false
+
 [workspace]
 members = [
   "stm32f3-pg_macros",
