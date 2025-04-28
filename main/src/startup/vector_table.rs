@@ -1,6 +1,6 @@
 use core::usize;
 
-use super::{_estack, default_hanlder, reset_handler};
+use super::{_estack, default_handler};
 
 struct VectorTableBuilder<const N: usize> {
     addr: usize,
@@ -101,6 +101,7 @@ impl<const N: usize> VectorTableBuilder<N> {
 
 type VectorTable<const N: usize> = (&'static usize, [Option<extern "C" fn()>; N]);
 
+#[cfg(not(test))]
 #[used]
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".vector_table")]
@@ -111,23 +112,13 @@ pub static VECTOR_TABLE: VectorTable<2> = VectorTableBuilder {
         VectorItem {
             address: VectorAddr::Addr(0x0000_0004),
             name: "Reset",
-            value: VectorValue::Fn(reset_handler),
+            value: VectorValue::Fn(super::reset_handler),
         },
         VectorItem {
             address: VectorAddr::Addr(0x0000_0008),
             name: "NMI",
-            value: VectorValue::Fn(default_hanlder),
+            value: VectorValue::Fn(default_handler),
         },
     ],
 }
 .build();
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_vector_table_builder() {
-        panic!("hi");
-    }
-}
