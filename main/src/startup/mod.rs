@@ -7,7 +7,7 @@ use crate::main;
 
 mod vector_table;
 
-#[cfg_attr(not(test), panic_handler)]
+#[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
@@ -63,4 +63,4 @@ pub extern "C" fn reset_handler() {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn default_hanlder() {}
+pub extern "C" fn default_handler() {}
