@@ -9,6 +9,7 @@ pub mod startup;
 fn main() -> ! {
     debug_rtt_init!();
 
-    debug_rprintln!("Hello, World!");
-    loop {}
+    loop {
+        debug_rprintln!("Hello, World!");
+    }
 }
