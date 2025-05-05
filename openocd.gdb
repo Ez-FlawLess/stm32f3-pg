@@ -5,4 +5,4 @@ target extended-remote :1337
 
 monitor reset halt
 
-break reset_handler
+# break reset_handler
