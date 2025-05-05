@@ -1,0 +1,10 @@
+[default.general]
+chip = "STM32F303VCTx"
+
+[debug.rtt]
+enabled = true
+timeout = 5000
+
+[debug.gdb]
+enabled = true
+gdb_connection_string = "127.0.0.1:1337"

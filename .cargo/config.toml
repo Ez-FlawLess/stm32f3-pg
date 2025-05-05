@@ -1,5 +1,5 @@
 [target.thumbv7em-none-eabihf]
-runner = "probe-rs run --chip STM32F303VCTx"
+runner = "probe-rs run"
 rustflags = [
   "-C", "linker=rust-lld",
   "-C", "link-arg=-Tmemory.x",
@@ -11,3 +11,5 @@ target = "thumbv7em-none-eabihf"
 [alias]
 test-arm = "test --target aarch64-unknown-linux-gnu"
 test-win = "test --target x86_64-pc-windows-msvc"
+debug = "embed debug"
+gdb = "gdb-multiarch -x openocd.cfg"

@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+critical-section = { version = "1.2.0", features = [ "restore-state-u32" ] }
 macros = { path = "../macros" }
+rtt-target = "0.6.1"
 utils = { path = "../utils" }
 
 [[bin]]

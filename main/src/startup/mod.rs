@@ -3,12 +3,15 @@ use core::{
     ptr::{read_volatile, write_volatile},
 };
 
+use rtt_target::debug_rprint;
+
 use crate::main;
 
 mod vector_table;
 
 #[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    debug_rprint!("panicked: {}", info);
     loop {}
 }
 
