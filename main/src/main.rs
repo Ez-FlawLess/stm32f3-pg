@@ -1,15 +1,13 @@
 #![no_std]
 #![no_main]
 
-use rtt_target::{debug_rprintln, debug_rtt_init};
+use rtt_target::debug_rtt_init_default;
 
 mod my_critical_section;
 pub mod startup;
 
 fn main() -> ! {
-    debug_rtt_init!();
+    debug_rtt_init_default!();
 
-    loop {
-        debug_rprintln!("Hello, World!");
-    }
+    loop {}
 }

@@ -2,8 +2,8 @@
 chip = "STM32F303VCTx"
 
 [debug.rtt]
-enabled = false
-timeout = 3000
+enabled = true
+timeout = 5000
 
 [debug.gdb]
 enabled = true
