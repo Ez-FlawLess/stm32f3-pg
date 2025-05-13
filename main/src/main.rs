@@ -1,9 +1,10 @@
 #![no_std]
 #![no_main]
 
-use gpio::{GPIOE, PinMode, PinOdr};
+use gpio::GPIOE;
 use rcc::RCC;
 use rtt_target::debug_rtt_init_default;
+use utils::gpio::{ModeReg, OdrReg, PinMode, PinOdr};
 
 mod gpio;
 mod my_critical_section;
@@ -20,6 +21,9 @@ fn main() -> ! {
 
     gpioe.p10().set_mode(PinMode::Output);
     gpioe.p10().set_odr(PinOdr::Active);
+
+    gpioe.p15().set_mode(PinMode::Output);
+    gpioe.p15().set_odr(PinOdr::Active);
 
     loop {}
 }
