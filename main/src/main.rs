@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use gpio::GPIOE;
+use gpio::{GPIOA, GPIOE};
 use rcc::RCC;
 use rtt_target::debug_rtt_init_default;
 use utils::gpio::{ModeReg, OdrReg, PinMode, PinOdr};
@@ -15,9 +15,13 @@ fn main() -> ! {
     debug_rtt_init_default!();
 
     let mut rcc = RCC::new().unwrap();
+    rcc.ahbenr().gpioa_en().enable_clock();
     rcc.ahbenr().gpioe_en().enable_clock();
-
+   
+    let mut gpioa= GPIOA::new();
     let mut gpioe = GPIOE::new();
+
+    gpioa.p0().set_mode(PinMode::Input);
 
     gpioe.p10().set_mode(PinMode::Output);
     gpioe.p10().set_odr(PinOdr::Active);

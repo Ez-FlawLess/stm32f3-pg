@@ -21,6 +21,8 @@ impl RCC {
         match RCC_CREATED.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed) {
             Ok(_) => Ok(Self {
                 ahbenr: RccAhbenr {
+                    gpioa_en: RccAhbenrReg,
+                    gpiob_en: RccAhbenrReg,
                     gpioe_en: RccAhbenrReg,
                 },
             }),
@@ -34,10 +36,20 @@ impl RCC {
 }
 
 pub struct RccAhbenr<const Addr: usize> {
+    gpioa_en: RccAhbenrReg<Addr, 17>,
+    gpiob_en: RccAhbenrReg<Addr, 18>,
     gpioe_en: RccAhbenrReg<Addr, 21>,
 }
 
 impl<const Addr: usize> RccAhbenr<Addr> {
+    pub fn gpioa_en(&mut self) -> &mut RccAhbenrReg<Addr, 17> {
+        &mut self.gpioa_en
+    }
+
+    pub fn gpiob_en(&mut self) -> &mut RccAhbenrReg<Addr, 18> {
+        &mut self.gpiob_en
+    }
+
     pub fn gpioe_en(&mut self) -> &mut RccAhbenrReg<Addr, 21> {
         &mut self.gpioe_en
     }
