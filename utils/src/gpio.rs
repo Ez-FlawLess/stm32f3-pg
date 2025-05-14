@@ -1,5 +1,3 @@
-use crate::register::write_register;
-
 #[macro_export]
 macro_rules! gpio {
     (@pin $pin: literal, $addr: literal, {
@@ -12,12 +10,8 @@ macro_rules! gpio {
         }
     };
     (
-        $(
-            $name: ident at $addr: literal => {
-                pins: [$($pin: literal),+],
-                registers: $regs: tt,
-            }
-        ),+
+        I/O: [$($name: ident at $addr: literal => [$($pin: literal),+],)+],
+        registers: $regs: tt,
     ) => {
         $crate::utils_paste! {
             pub struct Pin<const ADDR: usize, const PIN: usize>;
@@ -49,43 +43,98 @@ macro_rules! gpio {
     };
 }
 
-#[repr(usize)]
-pub enum PinMode {
+macro_rules! register_trait {
+    (@write $name: ident, $size: literal) => {
+        $crate::utils_paste! {
+            fn [<set_ $name:snake>](&mut self, [<$name:snake>]: [<Pin $name:camel>]) {
+                $crate::register::write_register(ADDR as *mut usize, PIN * $size, $size, [<$name:snake>] as usize);
+            }
+        }
+    };
+    (@read $name: ident, $size: literal) => {
+        $crate::utils_paste! {
+            fn [<get_ $name:snake>](&self) -> [<Pin $name:camel>] {
+                let value = $crate::register::read_register(ADDR as *mut usize, PIN * $size, $size);
+                [<Pin $name:camel>]::try_from(value).expect("INTERNAL ERROR")
+            }
+        }
+    };
+    (@ops rw, $name: ident, $size: literal) => {
+        register_trait!(@write $name, $size);
+
+        register_trait!(@read $name, $size);
+    };
+    (@ops r, $name: ident, $size: literal) => {
+        register_trait!(@read $name, $size);
+    };
+    (@ops w, $name: ident, $size: literal) => {
+        register_trait!(@read $name, $size);
+    };   
+    ($name: ident, $ops: ident, $size: literal, {
+        $($value_name: ident = $value: literal),+,
+    }) => {
+        $crate::utils_paste! {
+            #[repr(usize)]
+            pub enum [<Pin $name:camel>] {
+                $($value_name = $value),+
+            }
+
+            impl core::convert::TryFrom<usize> for [<Pin $name:camel>] {
+                type Error = ();
+
+                fn try_from(value: usize) -> Result<Self, Self::Error> {
+                    match value {
+                        $($value => Ok(Self::$value_name),)+
+                        _ => Err(()),
+                    }
+                }
+            }
+
+            pub trait [<$name:camel Reg>]<const ADDR: usize, const PIN: usize> {
+                register_trait!(@ops $ops, $name, $size);
+            }
+        }
+    };
+}
+
+register_trait!(mode, rw, 2, {
     Input = 0b00,
     Output = 0b01,
     AlternateFunction = 0b10,
     Analog = 0b11,
-}
+});
 
-pub trait ModeReg<const ADDR: usize, const PIN: usize> {
-    fn set_mode(&mut self, mode: PinMode) {
-        write_register(ADDR as *mut usize, PIN * 2, 2, mode as usize);
-    }
-}
+// Input data register
+register_trait!(idr, r, 1, {
+    Inactive = 0b0,
+    Active = 0b1,   
+});
 
-/// Output Data Register
-#[repr(usize)]
-pub enum PinOdr {
-    Inactive = 0,
-    Active = 0b1,
-}
+// Output data register
+register_trait!(odr, rw, 1, {
+    Inactive = 0b0,
+    Active = 0b1,   
+});
 
-pub trait OdrReg<const ADDR: usize, const PIN: usize> {
-    fn set_odr(&mut self, odr: PinOdr) {
-        write_register(ADDR as *mut usize, PIN, 1, odr as usize);
-    }
-}
+// pull-up pull-down register
+register_trait!(pupdr, rw, 2, {
+    NoPullUpPullDown = 0b00,
+    PullUp = 0b01,
+    PullDown = 0b10,
+    Reserved = 0b11,
+});
 
 #[cfg(test)]
 #[allow(dead_code)]
 mod tests {
     gpio! {
-        GPIOE at 0x4800_1000 => {
-            pins: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-            registers: {
-                mode: 0x00,
-                odr: 0x14,
-            },
-        }
+        I/O: [
+            GPIOA at 0x4800_0000 => [0, 1, 2, 3],
+            GPIOE at 0x4800_1000 => [0, 1, 2, 3, 4, 5, 6],
+        ],
+        registers: {
+            mode: 0x00,
+            odr: 0x14,
+        },
     }
 }
