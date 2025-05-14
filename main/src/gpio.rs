@@ -8,6 +8,8 @@ gpio! {
     ],
     registers: {
         mode: 0x00,
+        pupdr: 0x0C,
+        idr: 0x10,
         odr: 0x14,
     },
 }

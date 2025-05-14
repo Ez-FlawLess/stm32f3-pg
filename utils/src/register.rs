@@ -53,6 +53,22 @@ pub fn write_register(addr: *mut usize, index: usize, size: usize, value: usize)
     }
 }
 
+pub fn read_register(addr: *const usize, index: usize, size: usize) -> usize {
+    let mask = if size == 0 {
+        return 0;
+    } else if size >= usize::BITS as usize {
+        usize::MAX
+    } else {
+        (1 << size) - 1
+    };
+
+    let value = unsafe {
+        read_volatile(addr)
+    };
+
+    (value >> index) & mask
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -64,5 +80,14 @@ mod tests {
         write_register(&num as *const usize as *mut usize, 3, 2, 0b11);
 
         assert_eq!(0b11000, num);
+    }
+
+    #[test]
+    fn test_read_register() {
+        let num = 0b10100_usize;
+
+        let value = read_register(&num as *const usize, 2, 3);
+
+        assert_eq!(0b101, value);
     }
 }

@@ -1,5 +1,3 @@
-use crate::register::write_register;
-
 #[macro_export]
 macro_rules! gpio {
     (@pin $pin: literal, $addr: literal, {
@@ -46,7 +44,33 @@ macro_rules! gpio {
 }
 
 macro_rules! register_trait {
-    ($name: ident, $size: literal, {
+    (@write $name: ident, $size: literal) => {
+        $crate::utils_paste! {
+            fn [<set_ $name:snake>](&mut self, [<$name:snake>]: [<Pin $name:camel>]) {
+                $crate::register::write_register(ADDR as *mut usize, PIN * $size, $size, [<$name:snake>] as usize);
+            }
+        }
+    };
+    (@read $name: ident, $size: literal) => {
+        $crate::utils_paste! {
+            fn [<get_ $name:snake>](&self) -> [<Pin $name:camel>] {
+                let value = $crate::register::read_register(ADDR as *mut usize, PIN * $size, $size);
+                [<Pin $name:camel>]::try_from(value).expect("INTERNAL ERROR")
+            }
+        }
+    };
+    (@ops rw, $name: ident, $size: literal) => {
+        register_trait!(@write $name, $size);
+
+        register_trait!(@read $name, $size);
+    };
+    (@ops r, $name: ident, $size: literal) => {
+        register_trait!(@read $name, $size);
+    };
+    (@ops w, $name: ident, $size: literal) => {
+        register_trait!(@read $name, $size);
+    };   
+    ($name: ident, $ops: ident, $size: literal, {
         $($value_name: ident = $value: literal),+,
     }) => {
         $crate::utils_paste! {
@@ -55,25 +79,49 @@ macro_rules! register_trait {
                 $($value_name = $value),+
             }
 
-            pub trait [<$name:camel Reg>]<const ADDR: usize, const PIN: usize> {
-                fn [<set_ $name:snake>](&mut self, [<$name:snake>]: [<Pin $name:camel>]) {
-                    write_register(ADDR as *mut usize, PIN * $size, $size, [<$name:snake>] as usize);
+            impl core::convert::TryFrom<usize> for [<Pin $name:camel>] {
+                type Error = ();
+
+                fn try_from(value: usize) -> Result<Self, Self::Error> {
+                    match value {
+                        $($value => Ok(Self::$value_name),)+
+                        _ => Err(()),
+                    }
                 }
+            }
+
+            pub trait [<$name:camel Reg>]<const ADDR: usize, const PIN: usize> {
+                register_trait!(@ops $ops, $name, $size);
             }
         }
     };
 }
 
-register_trait!(mode, 2, {
+register_trait!(mode, rw, 2, {
     Input = 0b00,
     Output = 0b01,
     AlternateFunction = 0b10,
     Analog = 0b11,
 });
 
-register_trait!(odr, 1, {
-    Inactive = 0,
+// Input data register
+register_trait!(idr, r, 1, {
+    Inactive = 0b0,
     Active = 0b1,   
+});
+
+// Output data register
+register_trait!(odr, rw, 1, {
+    Inactive = 0b0,
+    Active = 0b1,   
+});
+
+// pull-up pull-down register
+register_trait!(pupdr, rw, 2, {
+    NoPullUpPullDown = 0b00,
+    PullUp = 0b01,
+    PullDown = 0b10,
+    Reserved = 0b11,
 });
 
 #[cfg(test)]
