@@ -9,12 +9,48 @@ macro_rules! gpio {
             )+
         }
     };
+    (@owned_pin {
+        $($reg: ident: $offset: literal),+,
+    }) => {
+        $crate::utils_paste! {
+            $(
+                impl $crate::gpio::[<Owned $reg:camel Reg>]<$offset> for OwnedPin {}
+            )+
+        }
+    };
     (
         I/O: [$($name: ident at $addr: literal => [$($pin: literal),+],)+],
         registers: $regs: tt,
     ) => {
         $crate::utils_paste! {
             pub struct Pin<const ADDR: usize, const PIN: usize>;
+
+            #[derive(Clone, Copy)]
+            pub struct OwnedPin {
+                addr: usize,
+                pin: usize,
+            }
+
+            impl<const ADDR: usize, const PIN: usize> Pin<ADDR, PIN> {
+                pub fn to_owned(&self) -> OwnedPin {
+                    OwnedPin{
+                        addr: ADDR,
+                        pin: PIN
+                    }
+                }
+            }
+
+            impl $crate::gpio::OwnedPinT for OwnedPin {
+                fn addr(&self) -> usize {
+                    self.addr
+                }
+
+                fn pin(&self) -> usize {
+                    self.pin
+                }
+            }
+
+            gpio!(@owned_pin $regs);
 
             $(
                 pub struct $name {
@@ -43,6 +79,11 @@ macro_rules! gpio {
     };
 }
 
+pub trait OwnedPinT {
+    fn addr(&self) -> usize;
+    fn pin(&self) -> usize;
+}
+
 macro_rules! register_trait {
     (@write $name: ident, $size: literal) => {
         $crate::utils_paste! {
@@ -54,7 +95,22 @@ macro_rules! register_trait {
     (@read $name: ident, $size: literal) => {
         $crate::utils_paste! {
             fn [<get_ $name:snake>](&self) -> [<Pin $name:camel>] {
-                let value = $crate::register::read_register(ADDR as *mut usize, PIN * $size, $size);
+                let value = $crate::register::read_register(ADDR as *const usize, PIN * $size, $size);
+                [<Pin $name:camel>]::try_from(value).expect("INTERNAL ERROR")
+            }
+        }
+    };
+    (@owned_write $name: ident, $size: literal) => {
+        $crate::utils_paste! {
+            fn [<set_ $name:snake>](&mut self, [<$name:snake>]: [<Pin $name:camel>]) {
+                $crate::register::write_register((Self::addr(self) + OFFSET) as *mut usize, Self::pin(self) * $size, $size, [<$name:snake>] as usize);
+            }
+        }
+    };
+    (@owned_read $name: ident, $size: literal) => {
+        $crate::utils_paste! {
+            fn [<get_ $name:snake>](&self) -> [<Pin $name:camel>] {
+                let value = $crate::register::read_register((Self::addr(self) + OFFSET) as *const usize, Self::pin(self) * $size, $size);
                 [<Pin $name:camel>]::try_from(value).expect("INTERNAL ERROR")
             }
         }
@@ -68,8 +124,19 @@ macro_rules! register_trait {
         register_trait!(@read $name, $size);
     };
     (@ops w, $name: ident, $size: literal) => {
-        register_trait!(@read $name, $size);
+        register_trait!(@write $name, $size);
     };   
+    (@owned_ops rw, $name: ident, $size: literal) => {
+        register_trait!(@owned_write $name, $size);
+
+        register_trait!(@owned_read $name, $size);
+    };
+    (@owned_ops r, $name: ident, $size: literal) => {
+        register_trait!(@owned_read $name, $size);
+    };
+    (@owned_ops w, $name: ident, $size: literal) => {
+        register_trait!(@owned_write $name, $size);
+    };
     ($name: ident, $ops: ident, $size: literal, {
         $($value_name: ident = $value: literal),+,
     }) => {
@@ -92,6 +159,10 @@ macro_rules! register_trait {
 
             pub trait [<$name:camel Reg>]<const ADDR: usize, const PIN: usize> {
                 register_trait!(@ops $ops, $name, $size);
+            }
+
+            pub trait [<Owned $name:camel Reg>]<const OFFSET: usize>: OwnedPinT {
+                register_trait!(@owned_ops $ops, $name, $size);
             }
         }
     };
