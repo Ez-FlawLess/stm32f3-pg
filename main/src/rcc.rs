@@ -1,12 +1,14 @@
-use core::{
-    ptr::{read_volatile, write_volatile},
-    sync::atomic::{AtomicBool, Ordering},
-};
+use core::sync::atomic::{AtomicBool, Ordering};
+
+use utils::register::ConstRegister;
 
 const RCC_ADDR: usize = 0x4002_1000;
 
 const AHBENR_OFFSET: usize = 0x14;
 const AHBENR_ADDR: usize = RCC_ADDR + AHBENR_OFFSET;
+
+const APB1_OFFSET: usize = 0x1C;
+const APB1_ADDR: usize = RCC_ADDR + APB1_OFFSET;
 
 static RCC_CREATED: AtomicBool = AtomicBool::new(false);
 
@@ -14,6 +16,7 @@ static RCC_CREATED: AtomicBool = AtomicBool::new(false);
 pub struct RCC {
     /// AHB peripheral clock enable register (RCC_AHBENR)
     ahbenr: RccAhbenr<AHBENR_ADDR>,
+    apb1: RccApb1<APB1_ADDR>,
 }
 
 impl RCC {
@@ -21,9 +24,12 @@ impl RCC {
         match RCC_CREATED.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed) {
             Ok(_) => Ok(Self {
                 ahbenr: RccAhbenr {
-                    gpioa_en: RccAhbenrReg,
-                    gpiob_en: RccAhbenrReg,
-                    gpioe_en: RccAhbenrReg,
+                    gpioa_en: RccReg,
+                    gpiob_en: RccReg,
+                    gpioe_en: RccReg,
+                },
+                apb1: RccApb1 { 
+                    tim7_en: RccReg, 
                 },
             }),
             Err(_) => Err(()),
@@ -33,42 +39,52 @@ impl RCC {
     pub fn ahbenr(&mut self) -> &mut RccAhbenr<AHBENR_ADDR> {
         &mut self.ahbenr
     }
+
+    pub fn apb1(&mut self) -> &mut RccApb1<APB1_ADDR> {
+        &mut self.apb1
+    }
 }
 
 pub struct RccAhbenr<const Addr: usize> {
-    gpioa_en: RccAhbenrReg<Addr, 17>,
-    gpiob_en: RccAhbenrReg<Addr, 18>,
-    gpioe_en: RccAhbenrReg<Addr, 21>,
+    gpioa_en: RccReg<Addr, 17>,
+    gpiob_en: RccReg<Addr, 18>,
+    gpioe_en: RccReg<Addr, 21>,
 }
 
 impl<const Addr: usize> RccAhbenr<Addr> {
-    pub fn gpioa_en(&mut self) -> &mut RccAhbenrReg<Addr, 17> {
+    pub fn gpioa_en(&mut self) -> &mut RccReg<Addr, 17> {
         &mut self.gpioa_en
     }
 
-    pub fn gpiob_en(&mut self) -> &mut RccAhbenrReg<Addr, 18> {
+    pub fn gpiob_en(&mut self) -> &mut RccReg<Addr, 18> {
         &mut self.gpiob_en
     }
 
-    pub fn gpioe_en(&mut self) -> &mut RccAhbenrReg<Addr, 21> {
+    pub fn gpioe_en(&mut self) -> &mut RccReg<Addr, 21> {
         &mut self.gpioe_en
     }
 }
 
-pub struct RccAhbenrReg<const Addr: usize, const Bit: usize>;
+pub struct RccApb1<const ADDR: usize> {
+    tim7_en: RccReg<ADDR, 5>,
+}
 
-impl<const Addr: usize, const Bit: usize> RccAhbenrReg<Addr, Bit> {
+impl<const ADDR: usize> RccApb1<ADDR> {
+    pub fn tim7_en(&mut self) -> &mut RccReg<ADDR, 5> {
+        &mut self.tim7_en
+    }
+}
+
+pub struct RccReg<const ADDR: usize, const BIT: usize>;
+
+impl<const ADDR: usize, const BIT: usize> ConstRegister<ADDR, BIT, 1> for RccReg<ADDR, BIT> {}
+
+impl<const ADDR: usize, const BIT: usize> RccReg<ADDR, BIT> {
     pub fn enable_clock(&mut self) {
-        let reg: *mut usize = Addr as _;
-
-        let mask = 1 << Bit;
-
-        unsafe {
-            write_volatile(reg, read_volatile(reg) | mask);
-        };
+        Self::write(1);
     }
 
-    pub fn disable_clock() {
-        todo!()
+    pub fn disable_clock(&mut self) {
+        Self::write(0);
     }
 }
