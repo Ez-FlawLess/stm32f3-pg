@@ -56,7 +56,7 @@ impl<const N: usize> VectorTableBuilderState<N> {
 impl<const N: usize> VectorTableBuilder<N> {
     pub const fn build<const M: usize>(self) -> VectorTable<M> {
         if M < N {
-            panic!("VectorTable can't have less items than VectortableBuiler");
+            panic!("VectorTable can't have less items than VectorTableBuilder");
         }
 
         let mut state = VectorTableBuilderState::<M>::new(&self);

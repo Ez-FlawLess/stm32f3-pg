@@ -4,11 +4,13 @@
 use gpio::{OwnedPin, GPIOA, GPIOE};
 use rcc::RCC;
 use rtt_target::debug_rtt_init_default;
-use utils::gpio::{IdrReg, ModeReg, OdrReg, OwnedModeReg, OwnedOdrReg, PinIdr, PinMode, PinOdr, PinPupdr, PupdrReg};
+use timers::Delay;
+use utils::{gpio::{IdrReg, ModeReg, OwnedModeReg, OwnedOdrReg, PinIdr, PinMode, PinOdr, PinPupdr, PupdrReg}};
 
 mod gpio;
 mod my_critical_section;
 mod rcc;
+mod timers;
 pub mod startup;
 
 fn main() -> ! {
@@ -17,6 +19,7 @@ fn main() -> ! {
     let mut rcc = RCC::new().unwrap();
     rcc.ahbenr().gpioa_en().enable_clock();
     rcc.ahbenr().gpioe_en().enable_clock();
+    rcc.apb1().tim7_en().enable_clock();
    
     let mut gpioa= GPIOA::new();
     let mut gpioe = GPIOE::new();
@@ -45,14 +48,18 @@ fn main() -> ! {
     let mut current_led = leds.next().unwrap();
 
     current_led.set_odr(PinOdr::Active);
+    
+    let mut delay = Delay::<1000>::new();
 
+    while let PinIdr::Inactive = button.get_idr() {}
+    
+    delay.start();
+    
     loop {
-        if let PinIdr::Active = button.get_idr() {
-           current_led.set_odr(PinOdr::Inactive);
-           current_led = leds.next().unwrap();
-           current_led.set_odr(PinOdr::Active); 
+        delay.wait();
 
-           while let PinIdr::Active = button.get_idr() {}
-        }
-    }
+        current_led.set_odr(PinOdr::Inactive);
+        current_led = leds.next().unwrap();
+        current_led.set_odr(PinOdr::Active);
+   }
 }
