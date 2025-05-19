@@ -1,6 +1,6 @@
-use core::u16;
+use core::usize;
 
-use utils::register::{ConstRegister, Register};
+use utils::{delay::DelayRegs, register::{ConstRegister, Register}};
 
 const TIM7: usize = 0x4000_1400;
 
@@ -25,26 +25,15 @@ type SrReg = Register<SR_ADDR, 0, 1>;
 const CEN_ADDR: usize = TIM7 + TIMX_CR1_OFFSET;
 type CenReg = Register<CEN_ADDR, 0, 1>;
 
-const fn calc_delay(ms: usize) -> (usize, usize) {
-    let clock: f32 = 8_000_000_f32 / 1_000_f32;
-    let ticks = ms as f32 * clock;
 
-    let mut arr = u16::MAX as f32 + 1_f32;
-
-    let mut psc = None::<f32>;
-    while arr >= 1_f32 {
-        
-    }
-
-    todo!()
-}
-
-pub fn delay() {
-    let arr: usize = 64_515;
-    let psc: usize = 247;
+pub fn delay_ms<const MS: usize>() {
+    
+    let delay_regs = const {
+        DelayRegs::new(8_000_000, MS)
+    };
    
-    ArrReg::write(arr);
-    PscReg::write(psc);
+    ArrReg::write(delay_regs.auto_reload as usize);
+    PscReg::write(delay_regs.prescaler as usize);
 
     CenReg::write(1);
 

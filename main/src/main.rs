@@ -4,8 +4,8 @@
 use gpio::{OwnedPin, GPIOA, GPIOE};
 use rcc::RCC;
 use rtt_target::debug_rtt_init_default;
-use timers::delay;
-use utils::gpio::{IdrReg, ModeReg, OwnedModeReg, OwnedOdrReg, PinIdr, PinMode, PinOdr, PinPupdr, PupdrReg};
+use timers::delay_ms;
+use utils::{gpio::{IdrReg, ModeReg, OwnedModeReg, OwnedOdrReg, PinIdr, PinMode, PinOdr, PinPupdr, PupdrReg}};
 
 mod gpio;
 mod my_critical_section;
@@ -52,7 +52,7 @@ fn main() -> ! {
     while let PinIdr::Inactive = button.get_idr() {}
     
     loop {
-        delay();
+        delay_ms::<2000>();
 
         current_led.set_odr(PinOdr::Inactive);
         current_led = leds.next().unwrap();

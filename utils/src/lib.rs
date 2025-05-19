@@ -5,3 +5,4 @@ pub use paste::paste as utils_paste;
 pub mod gpio;
 pub mod vector_table;
 pub mod register;
+pub mod delay;
