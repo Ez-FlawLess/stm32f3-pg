@@ -4,7 +4,7 @@
 use gpio::{OwnedPin, GPIOA, GPIOE};
 use rcc::RCC;
 use rtt_target::debug_rtt_init_default;
-use timers::delay_ms;
+use timers::Delay;
 use utils::{gpio::{IdrReg, ModeReg, OwnedModeReg, OwnedOdrReg, PinIdr, PinMode, PinOdr, PinPupdr, PupdrReg}};
 
 mod gpio;
@@ -48,11 +48,15 @@ fn main() -> ! {
     let mut current_led = leds.next().unwrap();
 
     current_led.set_odr(PinOdr::Active);
+    
+    let mut delay = Delay::<1000>::new();
 
     while let PinIdr::Inactive = button.get_idr() {}
     
+    delay.start();
+    
     loop {
-        delay_ms::<2000>();
+        delay.wait();
 
         current_led.set_odr(PinOdr::Inactive);
         current_led = leds.next().unwrap();
