@@ -1,3 +1,5 @@
+use crate::exti0_button_handler;
+
 use super::{_estack, default_handler};
 use utils::vector_table::*;
 
@@ -96,7 +98,7 @@ pub static VECTOR_TABLE: VectorTable<100> = VectorTableBuilder {
         VectorItem {
             address: VectorAddr::Addr(0x0000_0058),
             name: "EXTI0",
-            value: VectorValue::Fn(default_handler),
+            value: VectorValue::Fn(exti0_button_handler),
         },
         VectorItem {
             address: VectorAddr::Addr(0x0000_005C),

@@ -3,7 +3,7 @@ use core::ptr::{read_volatile, write_volatile};
 pub struct Register<const ADDR: usize, const INDEX: usize, const SIZE: usize>;
 
 pub trait ConstRegister<const ADDR: usize, const INDEX: usize, const SIZE: usize> {
-    fn write(value: usize) {
+    fn write(&mut self, value: usize) {
         let mask: usize = const { 
             if SIZE == 0 {
                 0
@@ -30,7 +30,7 @@ pub trait ConstRegister<const ADDR: usize, const INDEX: usize, const SIZE: usize
         }
     }
     
-    fn read() -> usize {
+    fn read(&self) -> usize {
         let mask: usize = const { 
             if SIZE == 0 {
                 0

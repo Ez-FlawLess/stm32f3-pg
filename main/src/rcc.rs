@@ -10,6 +10,9 @@ const AHBENR_ADDR: usize = RCC_ADDR + AHBENR_OFFSET;
 const APB1_OFFSET: usize = 0x1C;
 const APB1_ADDR: usize = RCC_ADDR + APB1_OFFSET;
 
+const APB2_OFFSET: usize = 0x18;
+const APB2_ADDR: usize = RCC_ADDR + APB2_OFFSET;
+
 static RCC_CREATED: AtomicBool = AtomicBool::new(false);
 
 /// Reset and Clock Control
@@ -17,6 +20,7 @@ pub struct RCC {
     /// AHB peripheral clock enable register (RCC_AHBENR)
     ahbenr: RccAhbenr<AHBENR_ADDR>,
     apb1: RccApb1<APB1_ADDR>,
+    apb2: RccApb2<APB2_ADDR>,
 }
 
 impl RCC {
@@ -31,6 +35,9 @@ impl RCC {
                 apb1: RccApb1 { 
                     tim7_en: RccReg, 
                 },
+                apb2: RccApb2 {
+                    sys_cfg_rst: RccReg,
+                },
             }),
             Err(_) => Err(()),
         }
@@ -42,6 +49,10 @@ impl RCC {
 
     pub fn apb1(&mut self) -> &mut RccApb1<APB1_ADDR> {
         &mut self.apb1
+    }
+
+    pub fn apb2(&mut self) -> &mut RccApb2<APB2_ADDR> {
+        &mut self.apb2
     }
 }
 
@@ -75,16 +86,26 @@ impl<const ADDR: usize> RccApb1<ADDR> {
     }
 }
 
+pub struct RccApb2<const ADDR: usize> {
+    sys_cfg_rst: RccReg<ADDR, 0>,
+}
+
+impl<const ADDR: usize> RccApb2<ADDR> {
+    pub fn sys_cfg_rst(&mut self) -> &mut RccReg<ADDR, 0> {
+        &mut self.sys_cfg_rst
+    }
+}
+
 pub struct RccReg<const ADDR: usize, const BIT: usize>;
 
 impl<const ADDR: usize, const BIT: usize> ConstRegister<ADDR, BIT, 1> for RccReg<ADDR, BIT> {}
 
 impl<const ADDR: usize, const BIT: usize> RccReg<ADDR, BIT> {
     pub fn enable_clock(&mut self) {
-        Self::write(1);
+        self.write(1);
     }
 
     pub fn disable_clock(&mut self) {
-        Self::write(0);
+        self.write(0);
     }
 }

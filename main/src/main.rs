@@ -1,25 +1,67 @@
 #![no_std]
 #![no_main]
 
+use core::sync::atomic::{AtomicBool, Ordering};
+
+use exti::Exti;
 use gpio::{OwnedPin, GPIOA, GPIOE};
 use rcc::RCC;
 use rtt_target::debug_rtt_init_default;
-use timers::Delay;
-use utils::{gpio::{IdrReg, ModeReg, OwnedModeReg, OwnedOdrReg, PinIdr, PinMode, PinOdr, PinPupdr, PupdrReg}};
+use syscfg::SysCfg;
+use timers::{Delay, DelayPoll};
+use utils::{gpio::{ModeReg, OwnedModeReg, OwnedOdrReg, PinMode, PinOdr, PinPupdr, PupdrReg}};
+use utils::register::ConstRegister;
 
 mod gpio;
 mod my_critical_section;
 mod rcc;
+mod syscfg;
+mod exti;
 mod timers;
 pub mod startup;
+
+static BUTTON_PRESSED: AtomicBool = AtomicBool::new(false);
+
+// EXTI peripheral base address
+const EXTI_BASE_ADDR: usize = 0x40010400;
+// EXTI Pending Register 1 (PR1) offset (for lines 0-31)
+const EXTI_PR1_OFFSET: usize = 0x14;
+const EXTI_PR1_ADDR: *mut u32 = (EXTI_BASE_ADDR + EXTI_PR1_OFFSET) as *mut u32;
+
+
+#[unsafe(no_mangle)]
+extern "C" fn exti0_button_handler() {
+    BUTTON_PRESSED.store(true, Ordering::SeqCst);
+
+    // Clear the EXTI line 0 pending bit by writing '1' to it.
+    // This is crucial.
+    unsafe {
+        // PR0 is bit 0 of EXTI_PR1
+        core::ptr::write_volatile(EXTI_PR1_ADDR, core::ptr::read_volatile(EXTI_PR1_ADDR) | (1 << 0));
+    }
+}
 
 fn main() -> ! {
     debug_rtt_init_default!();
 
+    // NVIC ISER0 address for enabling interrupts 0-31
+    const NVIC_ISER0: *mut u32 = 0xE000E100 as *mut u32;
+    // EXTI0_IRQn is typically 6 for STM32F3 series
+    const EXTI0_IRQN: u32 = 6;
+
+    
     let mut rcc = RCC::new().unwrap();
     rcc.ahbenr().gpioa_en().enable_clock();
     rcc.ahbenr().gpioe_en().enable_clock();
     rcc.apb1().tim7_en().enable_clock();
+    rcc.apb2().sys_cfg_rst().enable_clock();
+    
+    // Enable EXTI0 interrupt in the NVIC
+    // This allows the CPU to respond to the interrupt signal from EXTI0.
+    unsafe {
+        // Set the bit corresponding to EXTI0_IRQn in ISER[0]
+        core::ptr::write_volatile(NVIC_ISER0, 1 << EXTI0_IRQN);
+    }
    
     let mut gpioa= GPIOA::new();
     let mut gpioe = GPIOE::new();
@@ -49,17 +91,34 @@ fn main() -> ! {
 
     current_led.set_odr(PinOdr::Active);
     
-    let mut delay = Delay::<1000>::new();
 
-    while let PinIdr::Inactive = button.get_idr() {}
+    let mut syscfg = SysCfg::new();
+    syscfg.exti_cr1().exti_0().write(0);
+
+    let mut exti = Exti::new();
+    exti.rtsr1().tr0().write(1);
+    exti.imr1().mr0().write(1);
+    
+    let mut delay = Delay::<50>::new();
+
+    // while let PinIdr::Inactive = button.get_idr() {}
+    while !BUTTON_PRESSED.load(Ordering::Relaxed) {}
+    BUTTON_PRESSED.store(false, Ordering::SeqCst);
     
     delay.start();
-    
-    loop {
-        delay.wait();
 
-        current_led.set_odr(PinOdr::Inactive);
-        current_led = leds.next().unwrap();
-        current_led.set_odr(PinOdr::Active);
-   }
+    loop {
+        if let DelayPoll::Done = delay.poll() {
+            current_led.set_odr(PinOdr::Inactive);
+            current_led = leds.next().unwrap();
+            current_led.set_odr(PinOdr::Active);     
+        }
+        if BUTTON_PRESSED.load(Ordering::Relaxed) {
+            delay.stop();
+            BUTTON_PRESSED.store(false, Ordering::SeqCst);
+            while !BUTTON_PRESSED.load(Ordering::Relaxed) {}
+            delay.start();
+            BUTTON_PRESSED.store(false, Ordering::SeqCst);
+        }
+    }
 }
