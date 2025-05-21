@@ -56,6 +56,12 @@ impl RCC {
     }
 }
 
+impl Drop for RCC {
+    fn drop(&mut self) {
+        RCC_CREATED.store(false, Ordering::Release);
+    }
+}
+
 pub struct RccAhbenr<const Addr: usize> {
     gpioa_en: RccReg<Addr, 17>,
     gpiob_en: RccReg<Addr, 18>,

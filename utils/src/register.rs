@@ -1,5 +1,6 @@
 use core::ptr::{read_volatile, write_volatile};
 
+#[derive(Clone, Copy)]
 pub struct Register<const ADDR: usize, const INDEX: usize, const SIZE: usize>;
 
 pub trait ConstRegister<const ADDR: usize, const INDEX: usize, const SIZE: usize> {
