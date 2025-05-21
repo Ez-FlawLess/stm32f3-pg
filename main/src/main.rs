@@ -1,29 +1,51 @@
 #![no_std]
 #![no_main]
 
-use gpio::{OwnedPin, GPIOA, GPIOE};
+use core::sync::atomic::{AtomicBool, Ordering};
+
+use exti::Exti;
+use game::Game;
+use gpio::{OwnedPin, Pin, GPIOA, GPIOE};
+use nvic::Nvic;
 use rcc::RCC;
 use rtt_target::debug_rtt_init_default;
-use timers::Delay;
-use utils::{gpio::{IdrReg, ModeReg, OwnedModeReg, OwnedOdrReg, PinIdr, PinMode, PinOdr, PinPupdr, PupdrReg}};
+use syscfg::SysCfg;
+use utils::gpio::{ModeReg, OwnedModeReg, PinMode, PinPupdr, PupdrReg};
+use utils::register::ConstRegister;
 
 mod gpio;
 mod my_critical_section;
 mod rcc;
+mod syscfg;
+mod exti;
+mod nvic;
 mod timers;
+mod game;
 pub mod startup;
+
+const CLOCK: usize = 8_000_000;
+
+static BUTTON_PRESSED: AtomicBool = AtomicBool::new(false);
+
+#[unsafe(no_mangle)]
+extern "C" fn exti0_button_handler() {
+    BUTTON_PRESSED.store(true, Ordering::SeqCst);
+
+    Exti::new().pr1().pr0().write(1);
+}
 
 fn main() -> ! {
     debug_rtt_init_default!();
-
+    
     let mut rcc = RCC::new().unwrap();
     rcc.ahbenr().gpioa_en().enable_clock();
     rcc.ahbenr().gpioe_en().enable_clock();
     rcc.apb1().tim7_en().enable_clock();
-   
+    rcc.apb2().sys_cfg_rst().enable_clock();
+    
     let mut gpioa= GPIOA::new();
     let mut gpioe = GPIOE::new();
-
+    
     let mut leds: [OwnedPin; 8] = [
         gpioe.p9().to_owned(),
         gpioe.p10().to_owned(),
@@ -34,32 +56,58 @@ fn main() -> ! {
         gpioe.p15().to_owned(),
         gpioe.p8().to_owned(),
     ];
-
+        
     for led in leds.iter_mut() {
         led.set_mode(PinMode::Output);
     }
-
-    let button = gpioa.p0();
-    button.set_mode(PinMode::Input);
-    button.set_pupdr(PinPupdr::PullDown);
-
-    let mut leds = leds.into_iter().cycle();
-
-    let mut current_led = leds.next().unwrap();
-
-    current_led.set_odr(PinOdr::Active);
     
-    let mut delay = Delay::<1000>::new();
+    let mut game = Game::new(leds).unwrap();
+   
+    let button = B1UserButton::new(gpioa.p0());
 
-    while let PinIdr::Inactive = button.get_idr() {}
+    let mut nvic = Nvic::new();
+    nvic.iser0().irq6().write(1);
     
-    delay.start();
+    let mut syscfg = SysCfg::new();
+    syscfg.exti_cr1().exti_0().write(0);
+    
+    let mut exti = Exti::new();
+    exti.rtsr1().tr0().write(1);
+    exti.imr1().mr0().write(1);
+    
+    button.wait_for_press();
+   
+    game.start();
     
     loop {
-        delay.wait();
+        game.step();
 
-        current_led.set_odr(PinOdr::Inactive);
-        current_led = leds.next().unwrap();
-        current_led.set_odr(PinOdr::Active);
-   }
+        if button.pressed() {
+            if !game.check_for_win() {
+                button.wait_for_press();
+
+                game.reset(); 
+            }
+        }
+    }
+}
+
+struct B1UserButton<'a>(&'a mut Pin<1207959552, 0>);
+
+impl<'a> B1UserButton<'a> {
+    fn new(pin: &'a mut Pin<1207959552, 0>) -> Self {
+        pin.set_mode(PinMode::Input);
+        pin.set_pupdr(PinPupdr::PullDown);
+        
+        Self(pin)
+    }
+    
+    fn pressed(&self) -> bool {
+        BUTTON_PRESSED.compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
+        .is_ok()
+    }
+    
+    fn wait_for_press(&self) {
+        while !self.pressed() {}
+    }
 }
