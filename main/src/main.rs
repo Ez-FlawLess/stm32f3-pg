@@ -22,23 +22,11 @@ pub mod startup;
 
 static BUTTON_PRESSED: AtomicBool = AtomicBool::new(false);
 
-// EXTI peripheral base address
-const EXTI_BASE_ADDR: usize = 0x40010400;
-// EXTI Pending Register 1 (PR1) offset (for lines 0-31)
-const EXTI_PR1_OFFSET: usize = 0x14;
-const EXTI_PR1_ADDR: *mut u32 = (EXTI_BASE_ADDR + EXTI_PR1_OFFSET) as *mut u32;
-
-
 #[unsafe(no_mangle)]
 extern "C" fn exti0_button_handler() {
     BUTTON_PRESSED.store(true, Ordering::SeqCst);
 
-    // Clear the EXTI line 0 pending bit by writing '1' to it.
-    // This is crucial.
-    unsafe {
-        // PR0 is bit 0 of EXTI_PR1
-        core::ptr::write_volatile(EXTI_PR1_ADDR, core::ptr::read_volatile(EXTI_PR1_ADDR) | (1 << 0));
-    }
+    Exti::new().pr1().pr0().write(1);
 }
 
 fn main() -> ! {
