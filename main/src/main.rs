@@ -5,6 +5,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use exti::Exti;
 use gpio::{OwnedPin, GPIOA, GPIOE};
+use nvic::Nvic;
 use rcc::RCC;
 use rtt_target::debug_rtt_init_default;
 use syscfg::SysCfg;
@@ -17,6 +18,7 @@ mod my_critical_section;
 mod rcc;
 mod syscfg;
 mod exti;
+mod nvic;
 mod timers;
 pub mod startup;
 
@@ -44,16 +46,9 @@ fn main() -> ! {
     rcc.apb1().tim7_en().enable_clock();
     rcc.apb2().sys_cfg_rst().enable_clock();
     
-    // Enable EXTI0 interrupt in the NVIC
-    // This allows the CPU to respond to the interrupt signal from EXTI0.
-    unsafe {
-        // Set the bit corresponding to EXTI0_IRQn in ISER[0]
-        core::ptr::write_volatile(NVIC_ISER0, 1 << EXTI0_IRQN);
-    }
-   
     let mut gpioa= GPIOA::new();
     let mut gpioe = GPIOE::new();
-
+    
     let mut leds: [OwnedPin; 8] = [
         gpioe.p9().to_owned(),
         gpioe.p10().to_owned(),
@@ -64,22 +59,23 @@ fn main() -> ! {
         gpioe.p15().to_owned(),
         gpioe.p8().to_owned(),
     ];
-
+        
     for led in leds.iter_mut() {
         led.set_mode(PinMode::Output);
     }
-
+    
+    let mut leds = leds.into_iter().cycle();
+    
+    let mut current_led = leds.next().unwrap();
+    current_led.set_odr(PinOdr::Active);
+    
     let button = gpioa.p0();
     button.set_mode(PinMode::Input);
     button.set_pupdr(PinPupdr::PullDown);
-
-    let mut leds = leds.into_iter().cycle();
-
-    let mut current_led = leds.next().unwrap();
-
-    current_led.set_odr(PinOdr::Active);
     
-
+    let mut nvic = Nvic::new();
+    nvic.iser0().irq6().write(1);
+       
     let mut syscfg = SysCfg::new();
     syscfg.exti_cr1().exti_0().write(0);
 
