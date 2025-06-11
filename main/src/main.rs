@@ -31,6 +31,7 @@ static BUTTON_PRESSED: AtomicBool = AtomicBool::new(false);
 extern "C" fn exti0_button_handler() {
     BUTTON_PRESSED.store(true, Ordering::SeqCst);
 
+    // clear interrupt flag
     Exti::new().pr1().pr0().write(1);
 }
 
@@ -66,13 +67,17 @@ fn main() -> ! {
     let button = B1UserButton::new(gpioa.p0());
 
     let mut nvic = Nvic::new();
+    // enable interrupt #6
     nvic.iser0().irq6().write(1);
     
     let mut syscfg = SysCfg::new();
+    // map PA0 to EXTI0
     syscfg.exti_cr1().exti_0().write(0);
     
     let mut exti = Exti::new();
+    // Rising Edge
     exti.rtsr1().tr0().write(1);
+    // un-mask interrupt
     exti.imr1().mr0().write(1);
     
     button.wait_for_press();
