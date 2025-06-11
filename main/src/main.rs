@@ -88,11 +88,7 @@ fn main() -> ! {
         game.step();
 
         if button.pressed() {
-            if !game.check_for_win() {
-                button.wait_for_press();
-
-                game.reset(); 
-            }
+            game.check_for_win();
         }
     }
 }

@@ -21,6 +21,14 @@ pub struct Game<const N: usize> {
     current_index: usize,
     delay: Option<Tim7Delay>,
     level: usize,
+    state: GameState,
+}
+
+enum GameState {
+    NotStarted,
+    Playing,
+    NextLevel,
+    End,
 }
 
 impl<const N: usize> Game<N> {
@@ -37,29 +45,44 @@ impl<const N: usize> Game<N> {
             current_index: 0,
             delay: Some(Tim7Delay::new_with_regs(&DELAYS[0])?),
             level: 1,
+            state: GameState::NotStarted,
         })
     }
 
     pub fn start(&mut self) {
         self.delay.as_mut().unwrap().start();
+        self.state = GameState::Playing;
     }
 
     pub fn step(&mut self) {
-        if let DelayPoll::Done = self.delay.as_mut().unwrap().poll() {
-            self.next_led();
+        match self.state {
+            GameState::Playing => {
+                if let DelayPoll::Done = self.delay.as_mut().unwrap().poll() {
+                    self.next_led();
+                }
+            },
+            GameState::NextLevel => {
+                if let DelayPoll::Done = self.delay.as_mut().unwrap().poll() {
+                    self.next_led();
+                    self.state = GameState::Playing;
+                }
+            },
+            _ => {},
         }
     }
 
     pub fn check_for_win(&mut self) -> bool {
-        self.delay.as_mut().unwrap().stop();
-        if self.current_index == 0 {
-            self.next_level();
-            true
-        } else {
-            self.lose();
+        if let GameState::Playing = self.state {
+            self.delay.as_mut().unwrap().stop();
+            if self.current_index == 0 {
+                self.next_level();
 
-            false
+                return true
+            } else {
+                self.lose();
+            }
         }
+        false
     }
 
     pub fn reset(&mut self) {
@@ -67,12 +90,14 @@ impl<const N: usize> Game<N> {
     }
 
     fn lose(&mut self) {
+        self.state = GameState::End;
         for led in self.leds.iter_mut() {
             led.set_odr(PinOdr::Active);
         }
     }
 
     fn next_level(&mut self) {
+        self.state = GameState::NextLevel;
 
         self.new_delay(&DelayRegs::new(CLOCK, 100));
         self.delay.as_mut().unwrap().start();
@@ -105,10 +130,12 @@ impl<const N: usize> Game<N> {
         self.indexes = 
             core::array::from_fn(|i| i).into_iter().cycle();
         self.current_index = self.indexes.next().unwrap();
-        self.start();
+
+        self.delay.as_mut().unwrap().start();
     }
 
     fn win(&mut self) {
+        self.state = GameState::End;
         self.delay = None;
         self.leds[self.current_index].set_odr(PinOdr::Inactive);
     }
